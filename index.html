@@ -32,31 +32,6 @@
         #switchCamera { right: 100px; }
         #capture { right: 20px; }
 
-        /* Level indicator */
-        #levelIndicator {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 150px;
-            height: 10px;
-            background-color: #FF0000; /* Red when not level */
-            border-radius: 5px;
-        }
-
-        /* Level indicator bubble */
-        #bubble {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: #FFFFFF;
-            border: 2px solid #000000;
-            border-radius: 50%;
-            top: -5px;
-            left: 65px; /* Start centered */
-            transition: left 0.1s;
-        }
-
         /* Directional arrows */
         .arrow {
             position: absolute;
@@ -120,9 +95,6 @@
     <video id="videoInput" width="360px" height="480px" autoplay style="display:none;"></video>
     <canvas id="canvasOutput" width="360px" height="480px"></canvas>
     <canvas id="canvasCapture" width="360px" height="480px" style="display:none;"></canvas>
-    <div id="levelIndicator">
-        <div id="bubble"></div> <!-- The moving bubble inside the level indicator -->
-    </div>
     <!-- Arrows for directional hints -->
     <div id="arrowTop" class="arrow">↑</div>
     <div id="arrowBottom" class="arrow">↓</div>
@@ -148,8 +120,6 @@
         let capturedImage = document.getElementById('capturedImage');
         let switchButton = document.getElementById('switchCamera');
         let captureButton = document.getElementById('capture');
-        let bubble = document.getElementById('bubble');
-        let levelIndicator = document.getElementById('levelIndicator');
         let arrowTop = document.getElementById('arrowTop');
         let arrowBottom = document.getElementById('arrowBottom');
         let arrowLeft = document.getElementById('arrowLeft');
@@ -265,15 +235,7 @@
             const beta = event.beta;   // Front-back tilt in degrees
             const gamma = event.gamma; // Left-right tilt in degrees
 
-            // Normalize the level, assuming gamma is the main axis for horizontal leveling
-            let bubblePosition = Math.min(Math.max(gamma, -45), 45);  // Clamp values to [-45, 45]
-
-            // Calculate position of bubble (between 0 and 130px)
-            let bubbleOffset = (bubblePosition + 45) * (110 / 90);  // Normalized to fit within the level width
-
-            // Move the bubble
-            bubble.style.left = `${bubbleOffset}px`;
-
+            
             // Show directional arrows based on tilt angles
             if (beta > TOLERANCE) {
                 arrowTop.style.display = 'block';
@@ -297,12 +259,6 @@
                 arrowRight.style.display = 'none';
             }
 
-            // If within tolerance, change level to green (level), otherwise keep it red
-            if (Math.abs(beta) < TOLERANCE && Math.abs(gamma) < TOLERANCE) {
-                levelIndicator.style.backgroundColor = "#00FF00";  // Green when perfectly level
-            } else {
-                levelIndicator.style.backgroundColor = "#FF0000";  // Red when not level
-            }
         });
     </script>
 </body>
