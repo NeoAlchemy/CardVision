@@ -82,7 +82,7 @@
         let captureButton = document.getElementById('capture');
         let stream = null;
         let facingMode = "environment";
-        let cap, src, dst, cleanFrame largestRect;
+        let cap, src, dst, cleanFrame, largestRect;
 
         cv['onRuntimeInitialized'] = function() {
             startCamera(facingMode);
