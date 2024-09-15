@@ -23,23 +23,36 @@
                 let ctx = canvasOutput.getContext('2d');
                 ctx.drawImage(img, 0, 0, img.width, img.height);
 
+                console.log('Image loaded successfully.');
+
                 // Load the image into OpenCV
                 src = cv.imread(canvasOutput);
                 dst = new cv.Mat();
 
+                console.log('Image read into OpenCV.');
+
                 // Convert to grayscale
                 cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+                console.log('Image converted to grayscale.');
 
                 // Apply Gaussian blur to reduce noise
                 cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                console.log('Gaussian blur applied.');
 
                 // Apply Canny edge detection
                 cv.Canny(dst, dst, 75, 200);
+                console.log('Canny edge detection applied.');
 
                 // Find contours
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                console.log('Contours found: ', contours.size());
+
+                // Draw a rectangle around the original image for reference
+                let originalRectColor = new cv.Scalar(0, 255, 0, 255); // Green rectangle
+                cv.rectangle(src, new cv.Point(0, 0), new cv.Point(src.cols, src.rows), originalRectColor, 3);
+                cv.imshow('canvasOutput', src);
 
                 // Loop through the contours to find rectangles (the card)
                 for (let i = 0; i < contours.size(); i++) {
@@ -50,9 +63,7 @@
 
                     // If we have found a quadrilateral (4 corners)
                     if (approx.rows === 4) {
-                        // Draw the contour (for visualization)
-                        let color = new cv.Scalar(255, 0, 0, 255);
-                        cv.drawContours(src, contours, i, color, 3, cv.LINE_8, hierarchy, 100);
+                        console.log('Quadrilateral detected.');
 
                         // Extract the points of the quadrilateral
                         let points = [];
@@ -63,6 +74,16 @@
 
                         // Sort points in order (Top-Left, Top-Right, Bottom-Right, Bottom-Left)
                         points = sortCorners(points);
+
+                        // Draw a rectangle around the detected quadrilateral
+                        let quadRectColor = new cv.Scalar(255, 0, 0, 255); // Red rectangle
+                        for (let k = 0; k < 4; k++) {
+                            let startPoint = new cv.Point(points[k].x, points[k].y);
+                            let endPoint = new cv.Point(points[(k+1) % 4].x, points[(k+1) % 4].y);
+                            cv.line(src, startPoint, endPoint, quadRectColor, 2);
+                        }
+
+                        cv.imshow('canvasOutput', src); // Show the image with quadrilateral
 
                         // Define destination points for a warped image (standard playing card size)
                         let cardWidth = 200, cardHeight = 300;
@@ -81,7 +102,9 @@
                         let warped = new cv.Mat();
                         cv.warpPerspective(src, warped, M, new cv.Size(cardWidth, cardHeight));
 
-                        // Show the result
+                        console.log('Perspective transformation applied.');
+
+                        // Show only the card result
                         cv.imshow('canvasOutput', warped);
 
                         // Clean up
@@ -89,6 +112,8 @@
                         dstTri.delete();
                         M.delete();
                         warped.delete();
+                    } else {
+                        console.log('Not a quadrilateral.');
                     }
                     approx.delete();
                 }
