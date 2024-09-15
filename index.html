@@ -3,100 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenCV.js Playing Card Detection (Live Camera)</title>
+    <title>OpenCV.js Camera Switch</title>
     <script async src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
     <style>
         #canvasOutput, #videoInput {
             display: block;
             margin: 0 auto;
         }
+        #switchCamera {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 24px;
+            border: none;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <video id="videoInput" width="640" height="480" autoplay></video>
     <canvas id="canvasOutput" width="640" height="480"></canvas>
+    <button id="switchCamera">&#x21bb;</button>
 
     <script type="text/javascript">
         let video = document.getElementById('videoInput');
         let canvasOutput = document.getElementById('canvasOutput');
-        let src, dst;
+        let switchButton = document.getElementById('switchCamera');
+        let stream = null;
+        let facingMode = "environment";  // Start with back camera (default)
 
-        // Access the camera using getUserMedia
-        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
-            video.srcObject = stream;
-            video.play();
-            console.log('Camera stream started.');
-        }).catch(function(err) {
-            console.error('Error accessing camera: ' + err);
-        });
+        // Initialize OpenCV once fully loaded
+        cv['onRuntimeInitialized'] = function() {
+            startCamera(facingMode);
 
-        // Process each frame from the camera
-        video.addEventListener('play', function() {
-            const FPS = 30; // Frames per second for processing
+            // Add event listener to switch camera button
+            switchButton.addEventListener('click', function() {
+                facingMode = facingMode === "user" ? "environment" : "user"; // Switch between front and back
+                stopCamera();
+                startCamera(facingMode);
+            });
 
-            function processVideo() {
-                // Capture a frame from the video
-                if (!src) {
-                    src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-                    dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-                }
+            function startCamera(facingMode) {
+                // Access the camera with the correct facing mode
+                navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facingMode }
+                }).then(function(cameraStream) {
+                    stream = cameraStream;
+                    video.srcObject = stream;
+                    video.play();
+                }).catch(function(err) {
+                    console.error('Error accessing camera: ' + err);
+                });
 
-                // Read the current frame from the video element
-                cv.imread(video, src);
+                // Process the video stream
+                video.addEventListener('play', function() {
+                    const FPS = 30; // Frames per second for processing
 
-                // Convert to grayscale
-                cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+                    function processVideo() {
+                        // Capture a frame from the video
+                        if (!src) {
+                            src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                            dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+                        }
 
-                // Apply Gaussian blur to reduce noise
-                cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+                        // Read the current frame from the video element
+                        cv.imread(video, src);
 
-                // Apply Canny edge detection
-                cv.Canny(dst, dst, 50, 150);
+                        // Convert to grayscale
+                        cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
 
-                // Dilate and Erode to strengthen edges and reduce noise
-                let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-                cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), 1);
-                cv.erode(dst, dst, kernel, new cv.Point(-1, -1), 1);
-                kernel.delete();
+                        // Apply Gaussian blur to reduce noise
+                        cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
 
-                // Find contours
-                let contours = new cv.MatVector();
-                let hierarchy = new cv.Mat();
-                cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                        // Apply Canny edge detection
+                        cv.Canny(dst, dst, 50, 150);
 
-                // Loop through the contours to find quadrilaterals or rectangles
-                for (let i = 0; i < contours.size(); i++) {
-                    let cnt = contours.get(i);
-                    let perimeter = cv.arcLength(cnt, true);
-                    let approx = new cv.Mat();
-                    cv.approxPolyDP(cnt, approx, 0.04 * perimeter, true);
+                        // Dilate and Erode to strengthen edges and reduce noise
+                        let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+                        cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), 1);
+                        cv.erode(dst, dst, kernel, new cv.Point(-1, -1), 1);
+                        kernel.delete();
 
-                    // If the contour has 4 vertices, it's a potential quadrilateral
-                    if (approx.rows === 4) {
-                        // Extract the bounding rectangle
-                        let rect = cv.boundingRect(approx);
+                        // Find contours
+                        let contours = new cv.MatVector();
+                        let hierarchy = new cv.Mat();
+                        cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                        // Draw a bounding rectangle around the detected quadrilateral
-                        let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color
-                        cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), rectColor, 2);
+                        // Loop through the contours to find quadrilaterals or rectangles
+                        for (let i = 0; i < contours.size(); i++) {
+                            let cnt = contours.get(i);
+                            let perimeter = cv.arcLength(cnt, true);
+                            let approx = new cv.Mat();
+                            cv.approxPolyDP(cnt, approx, 0.04 * perimeter, true);
+
+                            // If the contour has 4 vertices, it's a potential quadrilateral
+                            if (approx.rows === 4) {
+                                // Extract the bounding rectangle
+                                let rect = cv.boundingRect(approx);
+
+                                // Draw a bounding rectangle around the detected quadrilateral
+                                let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color
+                                cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), rectColor, 2);
+                            }
+
+                            approx.delete();
+                        }
+
+                        contours.delete();
+                        hierarchy.delete();
+
+                        // Display the result on the canvas
+                        cv.imshow('canvasOutput', src);
+
+                        // Schedule the next frame processing
+                        setTimeout(processVideo, 1000 / FPS);
                     }
 
-                    approx.delete();
-                }
-
-                contours.delete();
-                hierarchy.delete();
-
-                // Display the result on the canvas
-                cv.imshow('canvasOutput', src);
-
-                // Schedule the next frame processing
-                setTimeout(processVideo, 1000 / FPS);
+                    // Start processing the video
+                    processVideo();
+                });
             }
 
-            // Start processing the video
-            processVideo();
-        });
+            // Stop the camera and release the stream
+            function stopCamera() {
+                if (stream) {
+                    let tracks = stream.getTracks();
+                    tracks.forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+            }
+        };
     </script>
 </body>
 </html>
