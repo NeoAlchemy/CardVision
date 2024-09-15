@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenCV.js Camera Switch</title>
-    <script src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
+    <title>OpenCV.js Camera Switch with Contour Debugging</title>
+    <script async src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
     <style>
         #canvasOutput, #videoInput {
             display: block;
@@ -31,6 +31,14 @@
     <button id="switchCamera">&#x21bb;</button>
 
     <script type="text/javascript">
+        // Constants for adjusting detection parameters
+        const CANNY_THRESHOLD_1 = 30;        // Lower threshold for Canny edge detection
+        const CANNY_THRESHOLD_2 = 100;       // Upper threshold for Canny edge detection
+        const APPROX_POLY_TOLERANCE = 0.05;  // Tolerance for contour approximation (cv.approxPolyDP)
+        const DILATE_ITERATIONS = 1;         // Number of iterations for dilation
+        const ERODE_ITERATIONS = 1;          // Number of iterations for erosion
+        const FRAME_RATE = 30;               // Frames per second for processing
+
         let video = document.getElementById('videoInput');
         let canvasOutput = document.getElementById('canvasOutput');
         let switchButton = document.getElementById('switchCamera');
@@ -62,8 +70,6 @@
 
                 // Process the video stream
                 video.addEventListener('play', function() {
-                    const FPS = 30; // Frames per second for processing
-
                     function processVideo() {
                         // Capture a frame from the video
                         if (!src) {
@@ -81,12 +87,12 @@
                         cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
 
                         // Apply Canny edge detection
-                        cv.Canny(dst, dst, 50, 150);
+                        cv.Canny(dst, dst, CANNY_THRESHOLD_1, CANNY_THRESHOLD_2);  // Using constants
 
                         // Dilate and Erode to strengthen edges and reduce noise
                         let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-                        cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), 1);
-                        cv.erode(dst, dst, kernel, new cv.Point(-1, -1), 1);
+                        cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), DILATE_ITERATIONS);  // Using constant
+                        cv.erode(dst, dst, kernel, new cv.Point(-1, -1), ERODE_ITERATIONS);    // Using constant
                         kernel.delete();
 
                         // Find contours
@@ -94,20 +100,26 @@
                         let hierarchy = new cv.Mat();
                         cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
+                        // Draw all contours in red for debugging
+                        let contourColor = new cv.Scalar(255, 0, 0, 255); // Red
+                        cv.drawContours(src, contours, -1, contourColor, 2);
+
                         // Loop through the contours to find quadrilaterals or rectangles
                         for (let i = 0; i < contours.size(); i++) {
                             let cnt = contours.get(i);
                             let perimeter = cv.arcLength(cnt, true);
                             let approx = new cv.Mat();
-                            cv.approxPolyDP(cnt, approx, 0.04 * perimeter, true);
+                            cv.approxPolyDP(cnt, approx, APPROX_POLY_TOLERANCE * perimeter, true);  // Using constant
 
                             // If the contour has 4 vertices, it's a potential quadrilateral
                             if (approx.rows === 4) {
+                                console.log('Quadrilateral detected.');
+
                                 // Extract the bounding rectangle
                                 let rect = cv.boundingRect(approx);
 
                                 // Draw a bounding rectangle around the detected quadrilateral
-                                let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color
+                                let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color for valid quadrilaterals
                                 cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), rectColor, 2);
                             }
 
@@ -121,7 +133,7 @@
                         cv.imshow('canvasOutput', src);
 
                         // Schedule the next frame processing
-                        setTimeout(processVideo, 1000 / FPS);
+                        setTimeout(processVideo, 1000 / FRAME_RATE);  // Using constant
                     }
 
                     // Start processing the video
