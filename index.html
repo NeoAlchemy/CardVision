@@ -3,31 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenCV.js Playing Card Detection</title>
+    <title>OpenCV.js Playing Card Detection (Live Camera)</title>
     <script async src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
+    <style>
+        #canvasOutput, #videoInput {
+            display: block;
+            margin: 0 auto;
+        }
+    </style>
 </head>
 <body>
-    <input type="file" id="fileInput">
-    <canvas id="canvasOutput"></canvas>
+    <video id="videoInput" width="640" height="480" autoplay></video>
+    <canvas id="canvasOutput" width="640" height="480"></canvas>
 
     <script type="text/javascript">
+        let video = document.getElementById('videoInput');
+        let canvasOutput = document.getElementById('canvasOutput');
         let src, dst;
-        const canvasOutput = document.getElementById('canvasOutput');
-        const fileInput = document.getElementById('fileInput');
 
-        fileInput.onchange = function (e) {
-            let img = new Image();
-            img.onload = function () {
-                canvasOutput.width = img.width;
-                canvasOutput.height = img.height;
-                let ctx = canvasOutput.getContext('2d');
-                ctx.drawImage(img, 0, 0, img.width, img.height);
+        // Access the camera using getUserMedia
+        navigator.mediaDevices.getUserMedia({ video: true }).then(function(stream) {
+            video.srcObject = stream;
+            video.play();
+            console.log('Camera stream started.');
+        }).catch(function(err) {
+            console.error('Error accessing camera: ' + err);
+        });
 
-                console.log('Image loaded successfully.');
+        // Process each frame from the camera
+        video.addEventListener('play', function() {
+            const FPS = 30; // Frames per second for processing
 
-                // Load the image into OpenCV
-                src = cv.imread(canvasOutput);
-                dst = new cv.Mat();
+            function processVideo() {
+                // Capture a frame from the video
+                if (!src) {
+                    src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                    dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+                }
+
+                // Read the current frame from the video element
+                cv.imread(video, src);
 
                 // Convert to grayscale
                 cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
@@ -49,60 +64,21 @@
                 let hierarchy = new cv.Mat();
                 cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                console.log('Contours found:', contours.size());
-
-                // Loop through the contours
+                // Loop through the contours to find quadrilaterals or rectangles
                 for (let i = 0; i < contours.size(); i++) {
                     let cnt = contours.get(i);
                     let perimeter = cv.arcLength(cnt, true);
                     let approx = new cv.Mat();
-                    cv.approxPolyDP(cnt, approx, 0.04 * perimeter, true); // More forgiving approx
+                    cv.approxPolyDP(cnt, approx, 0.04 * perimeter, true);
 
                     // If the contour has 4 vertices, it's a potential quadrilateral
                     if (approx.rows === 4) {
-                        console.log('Quadrilateral detected.');
-
                         // Extract the bounding rectangle
                         let rect = cv.boundingRect(approx);
 
                         // Draw a bounding rectangle around the detected quadrilateral
                         let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color
                         cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), rectColor, 2);
-
-                        // Extract the card using perspective transformation (optional)
-                        let cardWidth = 200, cardHeight = 300;
-                        let dstPoints = [
-                            new cv.Point(0, 0),
-                            new cv.Point(cardWidth - 1, 0),
-                            new cv.Point(cardWidth - 1, cardHeight - 1),
-                            new cv.Point(0, cardHeight - 1)
-                        ];
-
-                        let points = [
-                            new cv.Point(rect.x, rect.y),
-                            new cv.Point(rect.x + rect.width, rect.y),
-                            new cv.Point(rect.x + rect.width, rect.y + rect.height),
-                            new cv.Point(rect.x, rect.y + rect.height)
-                        ];
-
-                        // Apply perspective transformation
-                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...points.map(p => [p.x, p.y])));
-                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...dstPoints.map(p => [p.x, p.y])));
-                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
-
-                        let warped = new cv.Mat();
-                        cv.warpPerspective(src, warped, M, new cv.Size(cardWidth, cardHeight));
-
-                        console.log('Perspective transformation applied.');
-
-                        // Show the extracted card (optional)
-                        cv.imshow('canvasOutput', warped);
-
-                        // Clean up
-                        srcTri.delete();
-                        dstTri.delete();
-                        M.delete();
-                        warped.delete();
                     }
 
                     approx.delete();
@@ -111,11 +87,16 @@
                 contours.delete();
                 hierarchy.delete();
 
-                // Show the image with bounding rectangles
+                // Display the result on the canvas
                 cv.imshow('canvasOutput', src);
-            };
-            img.src = URL.createObjectURL(e.target.files[0]);
-        };
+
+                // Schedule the next frame processing
+                setTimeout(processVideo, 1000 / FPS);
+            }
+
+            // Start processing the video
+            processVideo();
+        });
     </script>
 </body>
 </html>
