@@ -35,9 +35,9 @@
                 cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
                 console.log('Image converted to grayscale.');
 
-                // Apply adaptive threshold (alternative to Canny)
-                cv.adaptiveThreshold(dst, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2);
-                console.log('Adaptive threshold applied.');
+                // Apply Canny edge detection
+                cv.Canny(dst, dst, 50, 150);
+                console.log('Canny edge detection applied.');
 
                 // Find contours
                 let contours = new cv.MatVector();
@@ -45,97 +45,71 @@
                 cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
                 console.log('Contours found: ', contours.size());
 
-                // Loop through the contours to find rectangles (the card)
+                // Step 1: Draw all contours for visual feedback
+                let allContoursColor = new cv.Scalar(255, 0, 0, 255); // Red for all contours
+                cv.drawContours(src, contours, -1, allContoursColor, 2);
+
+                // Loop through the contours to find rectangles (potential cards)
                 for (let i = 0; i < contours.size(); i++) {
                     let cnt = contours.get(i);
                     let perimeter = cv.arcLength(cnt, true);
                     let approx = new cv.Mat();
                     cv.approxPolyDP(cnt, approx, 0.02 * perimeter, true);
 
-                    // Filter based on area (to exclude small or large noise)
-                    let area = cv.contourArea(cnt);
-                    if (area < 1000 || area > 500000) {
-                        console.log('Contour rejected based on area:', area);
-                        approx.delete();
-                        continue;
-                    }
-
-                    // If we have found a quadrilateral (4 corners) and appropriate aspect ratio
+                    // If we have found a quadrilateral (4 corners)
                     if (approx.rows === 4) {
                         console.log('Quadrilateral detected.');
 
+                        // Step 2: Draw quadrilateral contours in green
+                        let quadColor = new cv.Scalar(0, 255, 0, 255); // Green for quadrilaterals
+                        cv.drawContours(src, contours, i, quadColor, 2);
+
+                        // Extract the points of the quadrilateral
                         let points = [];
                         for (let j = 0; j < 4; j++) {
                             let point = approx.data32S.slice(j * 2, j * 2 + 2);
                             points.push({ x: point[0], y: point[1] });
                         }
 
-                        // Check if the aspect ratio is similar to that of a playing card
-                        let width = Math.sqrt(Math.pow(points[0].x - points[1].x, 2) + Math.pow(points[0].y - points[1].y, 2));
-                        let height = Math.sqrt(Math.pow(points[1].x - points[2].x, 2) + Math.pow(points[1].y - points[2].y, 2));
-                        let aspectRatio = width / height;
-                        console.log('Aspect ratio:', aspectRatio);
+                        // Define destination points for a warped image (standard playing card size)
+                        let cardWidth = 200, cardHeight = 300;
+                        let dstPoints = [
+                            new cv.Point(0, 0),
+                            new cv.Point(cardWidth - 1, 0),
+                            new cv.Point(cardWidth - 1, cardHeight - 1),
+                            new cv.Point(0, cardHeight - 1)
+                        ];
 
-                        if (aspectRatio > 0.5 && aspectRatio < 1.5) {
-                            // Draw a green rectangle around the detected quadrilateral
-                            let quadRectColor = new cv.Scalar(0, 255, 0, 255); // Green rectangle
-                            for (let k = 0; k < 4; k++) {
-                                let startPoint = new cv.Point(points[k].x, points[k].y);
-                                let endPoint = new cv.Point(points[(k+1) % 4].x, points[(k+1) % 4].y);
-                                cv.line(src, startPoint, endPoint, quadRectColor, 2);
-                            }
+                        // Apply perspective transformation
+                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...points.map(p => [p.x, p.y])));
+                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...dstPoints.map(p => [p.x, p.y])));
+                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
 
-                            cv.imshow('canvasOutput', src); // Show the image with quadrilateral
+                        let warped = new cv.Mat();
+                        cv.warpPerspective(src, warped, M, new cv.Size(cardWidth, cardHeight));
 
-                            // Define destination points for a warped image (standard playing card size)
-                            let cardWidth = 200, cardHeight = 300;
-                            let dstPoints = [
-                                new cv.Point(0, 0),
-                                new cv.Point(cardWidth - 1, 0),
-                                new cv.Point(cardWidth - 1, cardHeight - 1),
-                                new cv.Point(0, cardHeight - 1)
-                            ];
+                        console.log('Perspective transformation applied.');
 
-                            // Apply perspective transformation
-                            let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...points.map(p => [p.x, p.y])));
-                            let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...dstPoints.map(p => [p.x, p.y])));
-                            let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                        // Step 3: Display the warped image (the playing card)
+                        cv.imshow('canvasOutput', warped);
 
-                            let warped = new cv.Mat();
-                            cv.warpPerspective(src, warped, M, new cv.Size(cardWidth, cardHeight));
-
-                            console.log('Perspective transformation applied.');
-
-                            // Show only the card result
-                            cv.imshow('canvasOutput', warped);
-
-                            // Clean up
-                            srcTri.delete();
-                            dstTri.delete();
-                            M.delete();
-                            warped.delete();
-                        }
-                    } else {
-                        console.log('Not a quadrilateral.');
+                        // Clean up
+                        srcTri.delete();
+                        dstTri.delete();
+                        M.delete();
+                        warped.delete();
                     }
                     approx.delete();
                 }
 
                 contours.delete();
                 hierarchy.delete();
+
+                // Show the image with all detected contours and quadrilaterals drawn
+                cv.imshow('canvasOutput', src);
             };
             img.src = URL.createObjectURL(e.target.files[0]);
         };
-
-        function sortCorners(points) {
-            // Sort points to make sure they are in the order: Top-Left, Top-Right, Bottom-Right, Bottom-Left
-            points.sort((a, b) => a.y - b.y);
-            let topPoints = points.slice(0, 2);
-            let bottomPoints = points.slice(2, 4);
-            topPoints.sort((a, b) => a.x - b.x);
-            bottomPoints.sort((a, b) => a.x - b.x);
-            return [...topPoints, ...bottomPoints.reverse()];
-        }
     </script>
 </body>
 </html>
