@@ -82,7 +82,7 @@
         let captureButton = document.getElementById('capture');
         let stream = null;
         let facingMode = "environment";
-        let cap, src, dst, largestRect;
+        let cap, src, dst, cleanFrame largestRect;
 
         cv['onRuntimeInitialized'] = function() {
             startCamera(facingMode);
@@ -152,7 +152,7 @@
                         }
 
                         // Clone src frame for capture to avoid green rectangle being drawn on the captured image
-                        let cleanFrame = src.clone();
+                        cleanFrame = src.clone();
 
                         if (largestRect) {
                             // Draw the rectangle on src (live preview) but not on cleanFrame (captured image)
@@ -180,9 +180,7 @@
             }
 
             function captureLargestQuadrilateral(rect) {
-                // Clone the src frame (without the green rectangle)
-                let cleanFrame = src.clone();
-
+                
                 // Create a region of interest (ROI) from the largest quadrilateral
                 let roi = cleanFrame.roi(rect);
 
