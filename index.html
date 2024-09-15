@@ -44,6 +44,7 @@
         let switchButton = document.getElementById('switchCamera');
         let stream = null;
         let facingMode = "environment";  // Start with back camera (default)
+        let src, dst;
 
         // Initialize OpenCV once fully loaded
         cv['onRuntimeInitialized'] = function() {
@@ -65,18 +66,18 @@
                     video.srcObject = stream;
                     video.play();
                 }).catch(function(err) {
-                    console.error('Error accessing camera: ' + err);
+                    console.error('Error accessing camera.');
                 });
 
                 // Process the video stream
                 video.addEventListener('play', function() {
-                    function processVideo() {
-                        // Capture a frame from the video
-                        if (!src) {
-                            src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-                            dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
-                        }
+                    // Initialize src and dst only once when video starts playing
+                    if (!src || !dst) {
+                        src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+                        dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+                    }
 
+                    function processVideo() {
                         // Read the current frame from the video element
                         cv.imread(video, src);
 
