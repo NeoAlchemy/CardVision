@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCV.js Playing Card Detection</title>
+    <script async src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
+</head>
+<body>
+    <input type="file" id="fileInput">
+    <canvas id="canvasOutput"></canvas>
+    
+    <script type="text/javascript">
+        let src, dst;
+        const canvasOutput = document.getElementById('canvasOutput');
+        const fileInput = document.getElementById('fileInput');
+
+        fileInput.onchange = function (e) {
+            let img = new Image();
+            img.onload = function () {
+                canvasOutput.width = img.width;
+                canvasOutput.height = img.height;
+                let ctx = canvasOutput.getContext('2d');
+                ctx.drawImage(img, 0, 0, img.width, img.height);
+
+                // Load the image into OpenCV
+                src = cv.imread(canvasOutput);
+                dst = new cv.Mat();
+
+                // Convert to grayscale
+                cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+
+                // Apply Gaussian blur to reduce noise
+                cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+
+                // Apply Canny edge detection
+                cv.Canny(dst, dst, 75, 200);
+
+                // Find contours
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+                cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                // Loop through the contours to find rectangles (the card)
+                for (let i = 0; i < contours.size(); i++) {
+                    let cnt = contours.get(i);
+                    let perimeter = cv.arcLength(cnt, true);
+                    let approx = new cv.Mat();
+                    cv.approxPolyDP(cnt, approx, 0.02 * perimeter, true);
+
+                    // If we have found a quadrilateral (4 corners)
+                    if (approx.rows === 4) {
+                        // Draw the contour (for visualization)
+                        let color = new cv.Scalar(255, 0, 0, 255);
+                        cv.drawContours(src, contours, i, color, 3, cv.LINE_8, hierarchy, 100);
+
+                        // Extract the points of the quadrilateral
+                        let points = [];
+                        for (let j = 0; j < 4; j++) {
+                            let point = approx.data32S.slice(j * 2, j * 2 + 2);
+                            points.push({ x: point[0], y: point[1] });
+                        }
+
+                        // Sort points in order (Top-Left, Top-Right, Bottom-Right, Bottom-Left)
+                        points = sortCorners(points);
+
+                        // Define destination points for a warped image (standard playing card size)
+                        let cardWidth = 200, cardHeight = 300;
+                        let dstPoints = [
+                            new cv.Point(0, 0),
+                            new cv.Point(cardWidth - 1, 0),
+                            new cv.Point(cardWidth - 1, cardHeight - 1),
+                            new cv.Point(0, cardHeight - 1)
+                        ];
+
+                        // Apply perspective transformation
+                        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...points.map(p => [p.x, p.y])));
+                        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(...dstPoints.map(p => [p.x, p.y])));
+                        let M = cv.getPerspectiveTransform(srcTri, dstTri);
+
+                        let warped = new cv.Mat();
+                        cv.warpPerspective(src, warped, M, new cv.Size(cardWidth, cardHeight));
+
+                        // Show the result
+                        cv.imshow('canvasOutput', warped);
+
+                        // Clean up
+                        srcTri.delete();
+                        dstTri.delete();
+                        M.delete();
+                        warped.delete();
+                    }
+                    approx.delete();
+                }
+
+                contours.delete();
+                hierarchy.delete();
+            };
+            img.src = URL.createObjectURL(e.target.files[0]);
+        };
+
+        function sortCorners(points) {
+            // Sort points to make sure they are in the order: Top-Left, Top-Right, Bottom-Right, Bottom-Left
+            points.sort((a, b) => a.y - b.y);
+            let topPoints = points.slice(0, 2);
+            let bottomPoints = points.slice(2, 4);
+            topPoints.sort((a, b) => a.x - b.x);
+            bottomPoints.sort((a, b) => a.x - b.x);
+            return [...topPoints, ...bottomPoints.reverse()];
+        }
+    </script>
+</body>
+</html>
