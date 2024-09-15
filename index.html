@@ -176,12 +176,22 @@
             }
 
             function captureLargestQuadrilateral(rect) {
-                let roi = src.roi(rect);
+                // Clone the current frame to remove the green rectangle
+                let cleanFrame = src.clone();
+
+                // Create a region of interest (ROI) from the largest quadrilateral
+                let roi = cleanFrame.roi(rect);
+
+                // Display the captured image on the hidden canvas
                 cv.imshow('canvasCapture', roi);
+
+                // Convert the canvas to an image and display it on the page
                 let dataUrl = canvasCapture.toDataURL('image/png');
                 capturedImage.src = dataUrl;
                 capturedImage.style.display = 'block';
+
                 roi.delete();
+                cleanFrame.delete();  // Clean up the cloned frame
             }
         };
     </script>
