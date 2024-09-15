@@ -164,7 +164,6 @@
                         hierarchy.delete();
                         cv.imshow('canvasOutput', src);  // Show live preview with rectangle
 
-                        cleanFrame.delete();  // Delete the cloned clean frame after use
                         setTimeout(processVideo, 1000 / FRAME_RATE); 
                     }
                     processVideo();
