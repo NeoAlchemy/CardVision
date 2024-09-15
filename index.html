@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenCV.js Playing Card Detection</title>
     <script async src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
 </head>
@@ -31,50 +32,57 @@
                 // Convert to grayscale
                 cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
 
+                // Apply Gaussian blur to reduce noise
+                cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+
                 // Apply Canny edge detection
                 cv.Canny(dst, dst, 50, 150);
+
+                // Dilate and Erode to strengthen edges and reduce noise
+                let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+                cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), 1);
+                cv.erode(dst, dst, kernel, new cv.Point(-1, -1), 1);
+                kernel.delete();
 
                 // Find contours
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                // Loop through the contours to find rectangles (potential cards)
+                console.log('Contours found:', contours.size());
+
+                // Loop through the contours
                 for (let i = 0; i < contours.size(); i++) {
                     let cnt = contours.get(i);
                     let perimeter = cv.arcLength(cnt, true);
                     let approx = new cv.Mat();
-                    cv.approxPolyDP(cnt, approx, 0.02 * perimeter, true);
+                    cv.approxPolyDP(cnt, approx, 0.04 * perimeter, true); // More forgiving approx
 
-                    // If we have found a quadrilateral (4 corners)
+                    // If the contour has 4 vertices, it's a potential quadrilateral
                     if (approx.rows === 4) {
                         console.log('Quadrilateral detected.');
 
-                        // Extract the points of the quadrilateral
-                        let points = [];
-                        for (let j = 0; j < 4; j++) {
-                            let point = approx.data32S.slice(j * 2, j * 2 + 2);
-                            points.push({ x: point[0], y: point[1] });
-                        }
+                        // Extract the bounding rectangle
+                        let rect = cv.boundingRect(approx);
 
-                        // Step 1: Sort points (to make the quadrilateral straighter)
-                        points = sortCorners(points);
+                        // Draw a bounding rectangle around the detected quadrilateral
+                        let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color
+                        cv.rectangle(src, new cv.Point(rect.x, rect.y), new cv.Point(rect.x + rect.width, rect.y + rect.height), rectColor, 2);
 
-                        // Step 2: Draw the quadrilateral in green
-                        let quadColor = new cv.Scalar(0, 255, 0, 255); // Green for quadrilaterals
-                        for (let k = 0; k < 4; k++) {
-                            let startPoint = new cv.Point(points[k].x, points[k].y);
-                            let endPoint = new cv.Point(points[(k+1) % 4].x, points[(k+1) % 4].y);
-                            cv.line(src, startPoint, endPoint, quadColor, 2);
-                        }
-
-                        // Apply perspective transformation to extract the card
+                        // Extract the card using perspective transformation (optional)
                         let cardWidth = 200, cardHeight = 300;
                         let dstPoints = [
                             new cv.Point(0, 0),
                             new cv.Point(cardWidth - 1, 0),
                             new cv.Point(cardWidth - 1, cardHeight - 1),
                             new cv.Point(0, cardHeight - 1)
+                        ];
+
+                        let points = [
+                            new cv.Point(rect.x, rect.y),
+                            new cv.Point(rect.x + rect.width, rect.y),
+                            new cv.Point(rect.x + rect.width, rect.y + rect.height),
+                            new cv.Point(rect.x, rect.y + rect.height)
                         ];
 
                         // Apply perspective transformation
@@ -87,7 +95,7 @@
 
                         console.log('Perspective transformation applied.');
 
-                        // Show the final result (card extraction)
+                        // Show the extracted card (optional)
                         cv.imshow('canvasOutput', warped);
 
                         // Clean up
@@ -96,32 +104,18 @@
                         M.delete();
                         warped.delete();
                     }
+
                     approx.delete();
                 }
 
                 contours.delete();
                 hierarchy.delete();
 
-                // Show the image with the quadrilateral
+                // Show the image with bounding rectangles
                 cv.imshow('canvasOutput', src);
             };
             img.src = URL.createObjectURL(e.target.files[0]);
         };
-
-        // Function to sort quadrilateral points into top-left, top-right, bottom-right, bottom-left order
-        function sortCorners(points) {
-            // Sort by y-coordinate (to split top and bottom points)
-            points.sort((a, b) => a.y - b.y);
-            let topPoints = points.slice(0, 2);  // The two top points
-            let bottomPoints = points.slice(2, 4);  // The two bottom points
-
-            // Sort the top and bottom points by x-coordinate to get left and right
-            topPoints.sort((a, b) => a.x - b.x);
-            bottomPoints.sort((a, b) => a.x - b.x);
-
-            // Return points in the correct order: top-left, top-right, bottom-right, bottom-left
-            return [topPoints[0], topPoints[1], bottomPoints[1], bottomPoints[0]];
-        }
     </script>
 </body>
 </html>
