@@ -12,6 +12,7 @@
             margin: 0 auto;
             max-width: 100%;  /* Make sure it doesn't overflow the screen */
             height: auto;     /* Maintain the aspect ratio */
+            position: relative; /* Relative for arrow positioning */
         }
 
         /* Make buttons circular and position them */
@@ -56,6 +57,39 @@
             transition: left 0.1s;
         }
 
+        /* Directional arrows */
+        .arrow {
+            position: absolute;
+            display: none; /* Hidden by default */
+            font-size: 40px;
+            color: #FF0000;
+            pointer-events: none; /* Allow clicks to pass through */
+        }
+
+        #arrowTop {
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #arrowBottom {
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #arrowLeft {
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #arrowRight {
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
         /* Hide captured image by default */
         #capturedImage {
             display: none;
@@ -89,6 +123,12 @@
     <div id="levelIndicator">
         <div id="bubble"></div> <!-- The moving bubble inside the level indicator -->
     </div>
+    <!-- Arrows for directional hints -->
+    <div id="arrowTop" class="arrow">↑</div>
+    <div id="arrowBottom" class="arrow">↓</div>
+    <div id="arrowLeft" class="arrow">←</div>
+    <div id="arrowRight" class="arrow">→</div>
+
     <button id="switchCamera">&#x21bb;</button>
     <button id="capture">&#x1f4f7;</button>
     <img id="capturedImage" alt="Captured Quadrilateral">
@@ -110,6 +150,10 @@
         let captureButton = document.getElementById('capture');
         let bubble = document.getElementById('bubble');
         let levelIndicator = document.getElementById('levelIndicator');
+        let arrowTop = document.getElementById('arrowTop');
+        let arrowBottom = document.getElementById('arrowBottom');
+        let arrowLeft = document.getElementById('arrowLeft');
+        let arrowRight = document.getElementById('arrowRight');
         let stream = null;
         let facingMode = "environment";
         let cap, src, dst, cleanFrame, largestRect;
@@ -229,6 +273,29 @@
 
             // Move the bubble
             bubble.style.left = `${bubbleOffset}px`;
+
+            // Show directional arrows based on tilt angles
+            if (beta > TOLERANCE) {
+                arrowTop.style.display = 'block';
+                arrowBottom.style.display = 'none';
+            } else if (beta < -TOLERANCE) {
+                arrowBottom.style.display = 'block';
+                arrowTop.style.display = 'none';
+            } else {
+                arrowTop.style.display = 'none';
+                arrowBottom.style.display = 'none';
+            }
+
+            if (gamma > TOLERANCE) {
+                arrowLeft.style.display = 'block';
+                arrowRight.style.display = 'none';
+            } else if (gamma < -TOLERANCE) {
+                arrowRight.style.display = 'block';
+                arrowLeft.style.display = 'none';
+            } else {
+                arrowLeft.style.display = 'none';
+                arrowRight.style.display = 'none';
+            }
 
             // If within tolerance, change level to green (level), otherwise keep it red
             if (Math.abs(beta) < TOLERANCE && Math.abs(gamma) < TOLERANCE) {
