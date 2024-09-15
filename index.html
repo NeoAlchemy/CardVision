@@ -6,13 +6,18 @@
     <title>OpenCV.js Camera Capture</title>
     <script src="https://docs.opencv.org/master/opencv.js" type="text/javascript"></script>
     <style>
-        #canvasOutput, #videoInput {
+        /* Ensure the video and canvas are centered and responsive */
+        #videoInput, #canvasOutput, #capturedImage {
             display: block;
             margin: 0 auto;
+            max-width: 100%;  /* Make sure it doesn't overflow the screen */
+            height: auto;     /* Maintain the aspect ratio */
         }
+
+        /* Make buttons circular and position them */
         #switchCamera, #capture {
-            position: absolute;
-            top: 20px;
+            position: fixed;
+            bottom: 20px;
             width: 60px;
             height: 60px;
             border-radius: 50%;
@@ -25,11 +30,31 @@
         }
         #switchCamera { right: 100px; }
         #capture { right: 20px; }
+
+        /* Hide captured image by default */
         #capturedImage {
-            display: block;
+            display: none;
             margin: 20px auto;
             border: 2px solid #4CAF50;
             max-width: 100%;
+        }
+
+        /* Media query for smaller screens (like portrait mode on mobile) */
+        @media only screen and (max-width: 768px) {
+            #videoInput, #canvasOutput {
+                width: 100vw;   /* Use full width of the viewport */
+                height: auto;   /* Maintain aspect ratio */
+            }
+
+            /* Adjust button size for smaller screens */
+            #switchCamera, #capture {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
+            #switchCamera { right: 80px; }
+            #capture { right: 10px; }
         }
     </style>
 </head>
@@ -39,16 +64,16 @@
     <canvas id="canvasCapture" width="640" height="480" style="display:none;"></canvas>
     <button id="switchCamera">&#x21bb;</button>
     <button id="capture">&#x1f4f7;</button>
-    <img id="capturedImage" alt="Captured Quadrilateral" style="display:none;">
+    <img id="capturedImage" alt="Captured Quadrilateral">
 
     <script type="text/javascript">
-        // Constants for adjusting detection parameters
-        const CANNY_THRESHOLD_1 = 30;        // Lower threshold for Canny edge detection
-        const CANNY_THRESHOLD_2 = 100;       // Upper threshold for Canny edge detection
-        const APPROX_POLY_TOLERANCE = 0.05;  // Tolerance for contour approximation (cv.approxPolyDP)
-        const DILATE_ITERATIONS = 1;         // Number of iterations for dilation
-        const ERODE_ITERATIONS = 1;          // Number of iterations for erosion
-        const FRAME_RATE = 30;               // Frames per second for processing
+        // JavaScript remains unchanged (same as previous solution)
+        const CANNY_THRESHOLD_1 = 30;        
+        const CANNY_THRESHOLD_2 = 100;      
+        const APPROX_POLY_TOLERANCE = 0.05;
+        const DILATE_ITERATIONS = 1;        
+        const ERODE_ITERATIONS = 1;         
+        const FRAME_RATE = 30;              
 
         let video = document.getElementById('videoInput');
         let canvasOutput = document.getElementById('canvasOutput');
@@ -57,21 +82,18 @@
         let switchButton = document.getElementById('switchCamera');
         let captureButton = document.getElementById('capture');
         let stream = null;
-        let facingMode = "environment";  // Start with back camera (default)
+        let facingMode = "environment";
         let cap, src, dst, largestRect;
 
-        // Initialize OpenCV once fully loaded
         cv['onRuntimeInitialized'] = function() {
             startCamera(facingMode);
 
-            // Add event listener to switch camera button
             switchButton.addEventListener('click', function() {
-                facingMode = facingMode === "user" ? "environment" : "user"; // Switch between front and back
+                facingMode = facingMode === "user" ? "environment" : "user"; 
                 stopCamera();
                 startCamera(facingMode);
             });
 
-            // Add event listener to capture button
             captureButton.addEventListener('click', function() {
                 if (largestRect) {
                     captureLargestQuadrilateral(largestRect);
@@ -79,54 +101,37 @@
             });
 
             function startCamera(facingMode) {
-                // Access the camera with the correct facing mode
                 navigator.mediaDevices.getUserMedia({
                     video: { facingMode: facingMode }
                 }).then(function(cameraStream) {
                     stream = cameraStream;
                     video.srcObject = stream;
                     video.play();
-                    cap = new cv.VideoCapture(video); // Initialize video capture from video element
+                    cap = new cv.VideoCapture(video); 
                 }).catch(function(err) {
                     console.error('Error accessing camera.');
                 });
 
-                // Process the video stream
                 video.addEventListener('play', function() {
-                    // Initialize src and dst matrices when video starts playing
                     if (!src || !dst) {
                         src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
                         dst = new cv.Mat(video.height, video.width, cv.CV_8UC1);
                     }
 
                     function processVideo() {
-                        // Capture the frame from the video element using VideoCapture
                         cap.read(src);
-
-                        // Convert to grayscale
                         cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
-
-                        // Apply Gaussian blur to reduce noise
                         cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
-
-                        // Apply Canny edge detection
-                        cv.Canny(dst, dst, CANNY_THRESHOLD_1, CANNY_THRESHOLD_2);  // Using constants
-
-                        // Dilate and Erode to strengthen edges and reduce noise
+                        cv.Canny(dst, dst, CANNY_THRESHOLD_1, CANNY_THRESHOLD_2);  
                         let kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-                        cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), DILATE_ITERATIONS);  // Using constant
-                        cv.erode(dst, dst, kernel, new cv.Point(-1, -1), ERODE_ITERATIONS);    // Using constant
+                        cv.dilate(dst, dst, kernel, new cv.Point(-1, -1), DILATE_ITERATIONS);  
+                        cv.erode(dst, dst, kernel, new cv.Point(-1, -1), ERODE_ITERATIONS);    
                         kernel.delete();
 
-                        // Find contours
                         let contours = new cv.MatVector();
                         let hierarchy = new cv.Mat();
                         cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                        // Disable red debugging - Remove this line to enable contour debugging
-                        // cv.drawContours(src, contours, -1, contourColor, 2);
-
-                        // Find the largest quadrilateral
                         largestRect = null;
                         let largestArea = 0;
                         
@@ -134,45 +139,34 @@
                             let cnt = contours.get(i);
                             let perimeter = cv.arcLength(cnt, true);
                             let approx = new cv.Mat();
-                            cv.approxPolyDP(cnt, approx, APPROX_POLY_TOLERANCE * perimeter, true);  // Using constant
+                            cv.approxPolyDP(cnt, approx, APPROX_POLY_TOLERANCE * perimeter, true);  
 
-                            // If the contour has 4 vertices, it's a potential quadrilateral
                             if (approx.rows === 4) {
                                 let rect = cv.boundingRect(approx);
                                 let area = rect.width * rect.height;
-
-                                // Check if this is the largest quadrilateral found
                                 if (area > largestArea) {
                                     largestArea = area;
-                                    largestRect = rect;  // Store the largest rectangle
+                                    largestRect = rect;
                                 }
-
                                 approx.delete();
                             }
                         }
 
-                        // If a largest quadrilateral was found, draw it in green
                         if (largestRect) {
-                            let rectColor = new cv.Scalar(0, 255, 0, 255); // Green color for the largest quadrilateral
+                            let rectColor = new cv.Scalar(0, 255, 0, 255); 
                             cv.rectangle(src, new cv.Point(largestRect.x, largestRect.y), new cv.Point(largestRect.x + largestRect.width, largestRect.y + largestRect.height), rectColor, 2);
                         }
 
                         contours.delete();
                         hierarchy.delete();
-
-                        // Display the result on the canvas
                         cv.imshow('canvasOutput', src);
 
-                        // Schedule the next frame processing
-                        setTimeout(processVideo, 1000 / FRAME_RATE);  // Using constant
+                        setTimeout(processVideo, 1000 / FRAME_RATE); 
                     }
-
-                    // Start processing the video
                     processVideo();
                 });
             }
 
-            // Stop the camera and release the stream
             function stopCamera() {
                 if (stream) {
                     let tracks = stream.getTracks();
@@ -181,20 +175,13 @@
                 }
             }
 
-            // Capture and draw the largest quadrilateral on the capture canvas
             function captureLargestQuadrilateral(rect) {
-                // Create a region of interest (ROI) from the largest quadrilateral
                 let roi = src.roi(rect);
-
-                // Display the captured image on the hidden canvas
                 cv.imshow('canvasCapture', roi);
-
-                // Convert the canvas to an image and display it on the page
-                let dataUrl = canvasCapture.toDataURL('image/png');  // Convert the canvas to a data URL
-                capturedImage.src = dataUrl;  // Set the data URL as the image source
-                capturedImage.style.display = 'block';  // Show the captured image
-
-                roi.delete();  // Clean up
+                let dataUrl = canvasCapture.toDataURL('image/png');
+                capturedImage.src = dataUrl;
+                capturedImage.style.display = 'block';
+                roi.delete();
             }
         };
     </script>
