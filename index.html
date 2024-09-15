@@ -67,7 +67,6 @@
     <img id="capturedImage" alt="Captured Quadrilateral">
 
     <script type="text/javascript">
-        // JavaScript remains unchanged (same as previous solution)
         const CANNY_THRESHOLD_1 = 30;        
         const CANNY_THRESHOLD_2 = 100;      
         const APPROX_POLY_TOLERANCE = 0.05;
@@ -152,15 +151,20 @@
                             }
                         }
 
+                        // Clone src frame for capture to avoid green rectangle being drawn on the captured image
+                        let cleanFrame = src.clone();
+
                         if (largestRect) {
+                            // Draw the rectangle on src (live preview) but not on cleanFrame (captured image)
                             let rectColor = new cv.Scalar(0, 255, 0, 255); 
                             cv.rectangle(src, new cv.Point(largestRect.x, largestRect.y), new cv.Point(largestRect.x + largestRect.width, largestRect.y + largestRect.height), rectColor, 2);
                         }
 
                         contours.delete();
                         hierarchy.delete();
-                        cv.imshow('canvasOutput', src);
+                        cv.imshow('canvasOutput', src);  // Show live preview with rectangle
 
+                        cleanFrame.delete();  // Delete the cloned clean frame after use
                         setTimeout(processVideo, 1000 / FRAME_RATE); 
                     }
                     processVideo();
@@ -176,7 +180,7 @@
             }
 
             function captureLargestQuadrilateral(rect) {
-                // Clone the current frame to remove the green rectangle
+                // Clone the src frame (without the green rectangle)
                 let cleanFrame = src.clone();
 
                 // Create a region of interest (ROI) from the largest quadrilateral
