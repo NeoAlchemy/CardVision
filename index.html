@@ -49,11 +49,6 @@
                 cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
                 console.log('Contours found: ', contours.size());
 
-                // Draw a rectangle around the original image for reference
-                let originalRectColor = new cv.Scalar(0, 255, 0, 255); // Green rectangle
-                cv.rectangle(src, new cv.Point(0, 0), new cv.Point(src.cols, src.rows), originalRectColor, 3);
-                cv.imshow('canvasOutput', src);
-
                 // Loop through the contours to find rectangles (the card)
                 for (let i = 0; i < contours.size(); i++) {
                     let cnt = contours.get(i);
@@ -75,8 +70,8 @@
                         // Sort points in order (Top-Left, Top-Right, Bottom-Right, Bottom-Left)
                         points = sortCorners(points);
 
-                        // Draw a rectangle around the detected quadrilateral
-                        let quadRectColor = new cv.Scalar(255, 0, 0, 255); // Red rectangle
+                        // Draw a green rectangle around the detected quadrilateral
+                        let quadRectColor = new cv.Scalar(0, 255, 0, 255); // Green rectangle
                         for (let k = 0; k < 4; k++) {
                             let startPoint = new cv.Point(points[k].x, points[k].y);
                             let endPoint = new cv.Point(points[(k+1) % 4].x, points[(k+1) % 4].y);
