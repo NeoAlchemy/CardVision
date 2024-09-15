@@ -60,7 +60,6 @@
         #capturedImage {
             display: none;
             margin: 20px auto;
-            border: 2px solid #4CAF50;
             max-width: 100%;
         }
 
@@ -232,8 +231,8 @@
             bubble.style.left = `${bubbleOffset}px`;
 
             // If within tolerance, change level to green (level), otherwise keep it red
-            if (Math.abs(gamma) < TOLERANCE) {
-                levelIndicator.style.backgroundColor = "#00FF00";  // Green when level
+            if (Math.abs(beta) < TOLERANCE && Math.abs(gamma) < TOLERANCE) {
+                levelIndicator.style.backgroundColor = "#00FF00";  // Green when perfectly level
             } else {
                 levelIndicator.style.backgroundColor = "#FF0000";  // Red when not level
             }
