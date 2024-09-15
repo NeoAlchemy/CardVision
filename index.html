@@ -112,7 +112,7 @@
         let levelIndicator = document.getElementById('levelIndicator');
         let stream = null;
         let facingMode = "environment";
-        let cap, src, dst, largestRect;
+        let cap, src, dst, cleanFrame, largestRect;
 
         cv['onRuntimeInitialized'] = function() {
             startCamera(facingMode);
@@ -180,7 +180,8 @@
                                 approx.delete();
                             }
                         }
-
+                        cleanFrame = src.clone();
+                        
                         if (largestRect) {
                             let rectColor = new cv.Scalar(0, 255, 0, 255); 
                             cv.rectangle(src, new cv.Point(largestRect.x, largestRect.y), new cv.Point(largestRect.x + largestRect.width, largestRect.y + largestRect.height), rectColor, 2);
@@ -205,7 +206,6 @@
             }
 
             function captureLargestQuadrilateral(rect) {
-                let cleanFrame = src.clone();
                 let roi = cleanFrame.roi(rect);
                 cv.imshow('canvasCapture', roi);
                 let dataUrl = canvasCapture.toDataURL('image/png');
