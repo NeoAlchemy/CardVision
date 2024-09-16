@@ -93,13 +93,16 @@
 </head>
 <body>
     <video id="videoInput" width="360px" height="480px" autoplay style="display:none;"></video>
-    <canvas id="canvasOutput" width="360px" height="480px"></canvas>
+    <div>
+        <canvas id="canvasOutput" width="360px" height="480px"></canvas>
+        <!-- Arrows for directional hints -->
+        <div id="arrowTop" class="arrow">↑</div>
+        <div id="arrowBottom" class="arrow">↓</div>
+        <div id="arrowLeft" class="arrow">←</div>
+        <div id="arrowRight" class="arrow">→</div>
+    </div>
     <canvas id="canvasCapture" width="360px" height="480px" style="display:none;"></canvas>
-    <!-- Arrows for directional hints -->
-    <div id="arrowTop" class="arrow">↑</div>
-    <div id="arrowBottom" class="arrow">↓</div>
-    <div id="arrowLeft" class="arrow">←</div>
-    <div id="arrowRight" class="arrow">→</div>
+    
 
     <button id="switchCamera">&#x21bb;</button>
     <button id="capture">&#x1f4f7;</button>
